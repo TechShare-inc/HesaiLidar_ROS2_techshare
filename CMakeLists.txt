@@ -36,14 +36,24 @@ rosidl_generate_interfaces(${PROJECT_NAME}
   DEPENDENCIES builtin_interfaces 
 )
 
-# ライブラリのパスを追加
+# ライブラリのパス設定
 if(${CMAKE_SYSTEM_PROCESSOR} MATCHES "arm" OR ${CMAKE_SYSTEM_PROCESSOR} MATCHES "aarch64")
+  set(LIB_DIR ${CMAKE_BINARY_DIR}/lib/arm)
+  set(SOURCE_LIB_DIR ${CMAKE_SOURCE_DIR}/lib/arm)
   message(STATUS "Configuring for ARM architecture")
-  link_directories(${CMAKE_CURRENT_SOURCE_DIR}/lib/arm)
 else()
+  set(LIB_DIR ${CMAKE_BINARY_DIR}/lib/amd)
+  set(SOURCE_LIB_DIR ${CMAKE_SOURCE_DIR}/lib/amd)
   message(STATUS "Configuring for x86_64 architecture")
-  link_directories(${CMAKE_CURRENT_SOURCE_DIR}/lib/amd)
 endif()
+
+# 必要なライブラリをビルドディレクトリにコピー
+add_custom_command(
+  TARGET ${PROJECT_NAME} POST_BUILD
+  COMMAND ${CMAKE_COMMAND} -E make_directory ${LIB_DIR}
+  COMMAND ${CMAKE_COMMAND} -E copy_if_different ${SOURCE_LIB_DIR}/libPandarGeneral.so ${LIB_DIR}
+  COMMAND ${CMAKE_COMMAND} -E copy_if_different ${SOURCE_LIB_DIR}/libPandarGeneralSDK.so ${LIB_DIR}
+)
 
 # hesai_lidar_node 実行ファイル
 add_executable(hesai_lidar_node
@@ -75,24 +85,20 @@ target_include_directories(hesai_lidar_node PRIVATE
     ${Boost_INCLUDE_DIRS}
 )
 
-# 環境ごとのビルド設定
-if(${CMAKE_SYSTEM_PROCESSOR} MATCHES "arm" OR ${CMAKE_SYSTEM_PROCESSOR} MATCHES "aarch64")
-  target_link_libraries(hesai_lidar_node 
-      ${PCL_IO_LIBRARIES}
-      ${Boost_SYSTEM_LIBRARY}
-      PandarGeneral
-      PandarGeneralSDK
-  )
-else()
-  target_link_libraries(hesai_lidar_node 
-      ${PCL_IO_LIBRARIES}
-      ${Boost_SYSTEM_LIBRARY}
-      PandarGeneral
-      PandarGeneralSDK
-  )
-endif()
+# コピーされたライブラリをリンク
+target_link_directories(hesai_lidar_node PRIVATE ${LIB_DIR})
+target_link_libraries(hesai_lidar_node 
+    ${PCL_IO_LIBRARIES}
+    ${Boost_SYSTEM_LIBRARY}
+    PandarGeneral
+    PandarGeneralSDK
+)
 
-rosidl_target_interfaces(hesai_lidar_node ${PROJECT_NAME} "rosidl_typesupport_cpp")
+# この行を削除
+# rosidl_get_typesupport_target(cpp_typesupport_target "rosidl_typesupport_cpp")
+
+rosidl_get_typesupport_target(cpp_typesupport_target "${PROJECT_NAME}" "rosidl_typesupport_cpp")
+target_link_libraries(hesai_lidar_node ${cpp_typesupport_target})
 
 # ライブラリと実行ファイルのインストール設定
 install(TARGETS hesai_lidar_node
@@ -100,5 +106,10 @@ install(TARGETS hesai_lidar_node
 
 install(DIRECTORY launch
   DESTINATION share/${PROJECT_NAME})
+
+# ビルドされたライブラリをインストールディレクトリにコピー
+install(DIRECTORY ${LIB_DIR}/
+  DESTINATION lib/${PROJECT_NAME}
+)
 
 ament_package()
