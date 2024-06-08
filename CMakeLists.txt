@@ -37,7 +37,13 @@ rosidl_generate_interfaces(${PROJECT_NAME}
 )
 
 # ライブラリのパスを追加
-link_directories(${CMAKE_CURRENT_SOURCE_DIR}/lib)
+if(${CMAKE_SYSTEM_PROCESSOR} MATCHES "arm" OR ${CMAKE_SYSTEM_PROCESSOR} MATCHES "aarch64")
+  message(STATUS "Configuring for ARM architecture")
+  link_directories(${CMAKE_CURRENT_SOURCE_DIR}/lib/arm)
+else()
+  message(STATUS "Configuring for x86_64 architecture")
+  link_directories(${CMAKE_CURRENT_SOURCE_DIR}/lib/amd)
+endif()
 
 # hesai_lidar_node 実行ファイル
 add_executable(hesai_lidar_node
@@ -61,6 +67,7 @@ ament_target_dependencies(hesai_lidar_node
   "rclcpp_components"
 )
 
+# ヘッダーファイルのディレクトリを設定
 target_include_directories(hesai_lidar_node PRIVATE
     src/HesaiLidar_General_SDK/include
     src/HesaiLidar_General_SDK/src/PandarGeneralRaw/include
@@ -68,12 +75,22 @@ target_include_directories(hesai_lidar_node PRIVATE
     ${Boost_INCLUDE_DIRS}
 )
 
-target_link_libraries(hesai_lidar_node 
-    ${PCL_IO_LIBRARIES}
-    ${Boost_SYSTEM_LIBRARY}
-    PandarGeneral
-    PandarGeneralSDK
-)
+# 環境ごとのビルド設定
+if(${CMAKE_SYSTEM_PROCESSOR} MATCHES "arm" OR ${CMAKE_SYSTEM_PROCESSOR} MATCHES "aarch64")
+  target_link_libraries(hesai_lidar_node 
+      ${PCL_IO_LIBRARIES}
+      ${Boost_SYSTEM_LIBRARY}
+      PandarGeneral
+      PandarGeneralSDK
+  )
+else()
+  target_link_libraries(hesai_lidar_node 
+      ${PCL_IO_LIBRARIES}
+      ${Boost_SYSTEM_LIBRARY}
+      PandarGeneral
+      PandarGeneralSDK
+  )
+endif()
 
 rosidl_target_interfaces(hesai_lidar_node ${PROJECT_NAME} "rosidl_typesupport_cpp")
 
